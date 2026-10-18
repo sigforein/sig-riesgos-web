@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Susceptibilidad a incendios forestales en el Perú</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
+    />
+    <style>
+      :root {
+        --fondo: #f6f3ee;
+        --panel: #ffffff;
+        --texto: #23201c;
+        --suave: #6b645c;
+        --linea: #d9d3c9;
+        --acento: #8c1d18;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fondo: #1c1a18;
+          --panel: #26231f;
+          --texto: #ece7df;
+          --suave: #a39b90;
+          --linea: #3b3631;
+          --acento: #f08a7c;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        display: flex;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        background: var(--fondo);
+        color: var(--texto);
+      }
+      aside {
+        width: 340px;
+        flex: none;
+        background: var(--panel);
+        border-right: 1px solid var(--linea);
+        padding: 20px 20px 16px;
+        overflow-y: auto;
+      }
+      h1 {
+        font-size: 1.15rem;
+        line-height: 1.3;
+        margin: 0 0 6px;
+      }
+      h2 {
+        font-size: 0.95rem;
+        margin: 18px 0 8px;
+      }
+      p {
+        margin: 0 0 10px;
+        font-size: 0.88rem;
+        line-height: 1.5;
+        color: var(--suave);
+      }
+      #mapa {
+        flex: 1;
+        min-height: 100%;
+      }
+      .leyenda {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        font-size: 0.85rem;
+      }
+      .leyenda li {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 3px 0;
+      }
+      .leyenda i {
+        width: 22px;
+        height: 12px;
+        border-radius: 2px;
+        border: 1px solid rgba(0, 0, 0, 0.25);
+      }
+      .control {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.88rem;
+        margin: 6px 0;
+      }
+      .control input[type='range'] {
+        flex: 1;
+      }
+      #resultado,
+      #resumen-depto {
+        border: 1px solid var(--linea);
+        border-radius: 6px;
+        padding: 10px 12px;
+        font-size: 0.85rem;
+        line-height: 1.45;
+      }
+      #resultado strong,
+      #resumen-depto strong {
+        display: block;
+        font-size: 0.95rem;
+        margin-bottom: 2px;
+      }
+      .dato {
+        color: var(--suave);
+      }
+      .error {
+        color: var(--acento);
+      }
+      button,
+      select {
+        font: inherit;
+        font-size: 0.88rem;
+        color: var(--texto);
+        background: var(--panel);
+        border: 1px solid var(--linea);
+        border-radius: 5px;
+        padding: 6px 10px;
+        cursor: pointer;
+      }
+      ol#ranking {
+        padding-left: 20px;
+        margin: 8px 0 0;
+        font-size: 0.85rem;
+        line-height: 1.55;
+      }
+      ol#ranking li span {
+        color: var(--suave);
+      }
+      .nota {
+        font-size: 0.78rem;
+        color: var(--suave);
+        margin-top: 16px;
+        line-height: 1.45;
+      }
+      @media (max-width: 760px) {
+        body {
+          flex-direction: column-reverse;
+        }
+        aside {
+          width: 100%;
+          height: 46%;
+          border-right: 0;
+          border-top: 1px solid var(--linea);
+        }
+        #mapa {
+          height: 54%;
+          min-height: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <aside>
+      <h1>Susceptibilidad a incendios forestales en el Perú</h1>
+      <p>
+        Índice relativo por celda de 500 m, calculado con focos de calor de 2012 a 2021. Haga clic
+        en el mapa para consultar el distrito.
+      </p>
+
+      <h2>Consulta</h2>
+      <div id="resultado"><span class="dato">Aún no se ha seleccionado ningún punto.</span></div>
+
+      <h2>Capas</h2>
+      <div class="control">
+        <label for="opacidad">Opacidad del índice</label>
+        <input id="opacidad" type="range" min="0" max="100" value="85" />
+      </div>
+      <div class="control">
+        <input id="chk-distritos" type="checkbox" checked />
+        <label for="chk-distritos">Límites distritales</label>
+      </div>
+
+      <h2>Leyenda</h2>
+      <ul class="leyenda">
+        <li><i style="background: #bd0026"></i>Muy alta (0.8 a 1.0)</li>
+        <li><i style="background: #f03b20"></i>Alta (0.6 a 0.8)</li>
+        <li><i style="background: #fd8d3c"></i>Media (0.4 a 0.6)</li>
+        <li><i style="background: #fecc5c"></i>Baja (0.2 a 0.4)</li>
+        <li><i style="background: #ffffb2"></i>Muy baja (0 a 0.2)</li>
+        <li><i style="background: transparent"></i>Sin dato</li>
+      </ul>
+
+      <h2>Incendios por departamento</h2>
+      <div class="control">
+        <label for="sel-depto">Departamento</label>
+        <select id="sel-depto"></select>
+      </div>
+      <div id="resumen-depto" style="margin-top: 8px">
+        <span class="dato">Cargando datos del departamento…</span>
+      </div>
+
+      <h2>Distritos con mayor índice</h2>
+      <ol id="ranking"></ol>
+
+      <p class="nota">
+        El índice ordena las celdas y no es una probabilidad de incendio. Los distritos con menos de
+        la mitad de superficie forestal, herbácea o arbustiva no tienen dato.
+      </p>
+    </aside>
+    <div
+      id="mapa"
+      role="application"
+      aria-label="Mapa de susceptibilidad a incendios forestales"
+    ></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script>
+      const API = 'https://geo-incendio-api.onrender.com';
+
+      const mapa = L.map('mapa', { zoomControl: true }).setView([-9.2, -75.0], 6);
+
+      L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+        {
+          maxZoom: 16,
+          attribution: 'Tiles &copy; Esri',
+        }
+      ).addTo(mapa);
+
+      const indice = L.tileLayer('tiles/{z}/{x}/{y}.png', {
+        minZoom: 0,
+        maxNativeZoom: 8,
+        maxZoom: 16,
+        opacity: 0.85,
+      }).addTo(mapa);
+
+      const distritos = L.layerGroup().addTo(mapa);
+      fetch('distritos.geojson')
+        .then((r) => r.json())
+        .then((g) => {
+          L.geoJSON(g, {
+            interactive: false,
+            renderer: L.canvas(),
+            style: { color: '#3a3a3a', weight: 0.4, opacity: 0.55, fill: false },
+          }).addTo(distritos);
+        });
+
+      document
+        .getElementById('opacidad')
+        .addEventListener('input', (e) => indice.setOpacity(e.target.value / 100));
+      document.getElementById('chk-distritos').addEventListener('change', (e) => {
+        e.target.checked ? distritos.addTo(mapa) : mapa.removeLayer(distritos);
+      });
+
+      const caja = document.getElementById('resultado');
+      const fmt = (n) => (n === null || n === undefined ? 'sin dato' : Number(n).toFixed(3));
+
+      function mostrar(d) {
+        const nivel = d.nivel ? ` (${d.nivel.toLowerCase()})` : '';
+        const nota =
+          d.celdas !== null && d.celdas < 30
+            ? `<br><span class="error">Solo ${d.celdas} celdas: el promedio es poco fiable.</span>`
+            : '';
+        caja.innerHTML =
+          d.susc_media === null
+            ? `<strong>${d.distrito}</strong><span class="dato">${d.provincia}, ${d.departamento}<br>Sin dato. Menos de la mitad de su superficie es cobertura forestal, herbácea o arbustiva.</span>`
+            : `<strong>${d.distrito}</strong><span class="dato">${d.provincia}, ${d.departamento} · ubigeo ${d.ubigeo}</span><br>
+         Índice medio ${fmt(d.susc_media)}${nivel}<br>
+         Percentil 90 ${fmt(d.susc_p90)} · máximo ${fmt(d.susc_max)}<br>
+         <span class="dato">${d.celdas ?? 0} celdas de 500 m</span>${nota}`;
+      }
+
+      mapa.on('click', async (e) => {
+        caja.innerHTML = '<span class="dato">Consultando…</span>';
+        try {
+          const r = await fetch(
+            `${API}/punto?lon=${e.latlng.lng.toFixed(5)}&lat=${e.latlng.lat.toFixed(5)}`
+          );
+          if (r.status === 404) {
+            caja.innerHTML =
+              '<span class="dato">El punto cae fuera de los distritos del Perú.</span>';
+            return;
+          }
+          if (!r.ok) throw new Error(r.status);
+          mostrar(await r.json());
+        } catch (err) {
+          caja.innerHTML =
+            '<span class="error">No se pudo conectar con el servicio. Si el servidor estaba inactivo, espere unos segundos mientras inicia.</span>';
+        }
+      });
+
+      async function cargarResumenDepto(depto) {
+        const box = document.getElementById('resumen-depto');
+        try {
+          const r = await fetch(`${API}/departamento/${encodeURIComponent(depto)}/incendios`);
+          if (!r.ok) throw new Error(r.status);
+          const d = await r.json();
+          box.innerHTML = `
+            <strong>${d.departamento}</strong>
+            Focos registrados (2012-2025): <strong>${Number(d.focos_totales).toLocaleString()}</strong><br>
+            <span class="dato">Calibración (2012-2021): ${Number(d.focos_calibracion).toLocaleString()}</span><br>
+            <span class="dato">Validación (2022-2025): ${Number(d.focos_validacion).toLocaleString()}</span><br>
+            Índice departamental promedio: <strong>${fmt(d.susc_media)}</strong>
+          `;
+        } catch (err) {
+          box.innerHTML =
+            '<span class="error">Sin datos de incendios para este departamento.</span>';
+        }
+      }
+
+      async function cargarRanking(depto) {
+        const ol = document.getElementById('ranking');
+        ol.innerHTML = '';
+        try {
+          const r = await fetch(`${API}/ranking?departamento=${encodeURIComponent(depto)}&n=10`);
+          const lista = await r.json();
+          lista.forEach((d) => {
+            const li = document.createElement('li');
+            li.innerHTML = `${d.distrito} <span>${d.provincia} · ${fmt(d.susc_media)}</span>`;
+            ol.appendChild(li);
+          });
+        } catch (err) {
+          ol.innerHTML = '<li class="error">Servicio no disponible.</li>';
+        }
+      }
+
+      async function iniciar() {
+        const sel = document.getElementById('sel-depto');
+        try {
+          const deptos = await (await fetch(`${API}/departamentos`)).json();
+          deptos.forEach((d) => sel.add(new Option(d, d)));
+          sel.value = deptos.includes('JUNIN') ? 'JUNIN' : deptos[0];
+          sel.addEventListener('change', () => {
+            cargarResumenDepto(sel.value);
+            cargarRanking(sel.value);
+          });
+          cargarResumenDepto(sel.value);
+          cargarRanking(sel.value);
+        } catch (err) {
+          sel.add(new Option('Servicio no disponible', ''));
+        }
+      }
+      iniciar();
+    </script>
+  </body>
+</html>

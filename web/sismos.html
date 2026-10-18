@@ -89,6 +89,7 @@ let modo = 'zona', periodo = 'total', sel = null, datos = [];
 const capas = {};
 
 const mapa = L.map('mapa').setView([-9.2, -75.0], 6);
+mapa.createPane('pts').style.zIndex = 450;
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { maxZoom: 16, attribution: 'Tiles &copy; Esri · Sismos: USGS · Zonas: Norma E.030' }).addTo(mapa);
 
 const clase = (n) => (n >= 10 ? 4 : n >= 5 ? 3 : n >= 2 ? 2 : n >= 1 ? 1 : 0);
@@ -105,7 +106,6 @@ const zonas = L.geoJSON(null, {
 fetch('distritos_sismos.geojson').then((r) => r.json()).then((g) => zonas.addData(g));
 
 const pts = L.layerGroup().addTo(mapa);
-const rp = L.canvas();
 fetch('sismos_usgs.geojson').then((r) => r.json()).then((g) => { datos = g.features; dibujar(); });
 
 function dibujar() {
@@ -120,7 +120,7 @@ function dibujar() {
     const [lo, la] = f.geometry.coordinates;
     n++;
     L.circleMarker([la, lo], {
-      renderer: rp, radius: 2 + (p.mag - 4) * 2.2, fillOpacity: 0.8, color: '#fff', weight: 0.5,
+      pane: 'pts', radius: 2 + (p.mag - 4) * 2.2, fillOpacity: 0.8, color: '#fff', weight: 0.5,
       fillColor: p.prof < 70 ? '#2b8cbe' : p.prof < 300 ? '#7b3294' : '#000',
     }).bindTooltip(`M ${p.mag} · ${p.fecha} · ${p.prof} km<br>${esc(p.lugar)}`).addTo(pts);
   });
